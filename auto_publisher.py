@@ -34,7 +34,7 @@ print("Sending text to AnythingLLM for rewriting...")
 
 # --- UPDATE THESE TWO VARIABLES ---
 anythingllm_api_key = "6F7CF4M-3T5MSF6-N7SKQYY-SQV5A0G"
-workspace_slug = "odia-news" 
+workspace_slug = "sata-katha-odia-news" 
 # ----------------------------------
 
 anythingllm_url = f"http://localhost:3001/api/v1/workspace/{workspace_slug}/chat"
