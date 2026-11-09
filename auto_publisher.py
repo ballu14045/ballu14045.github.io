@@ -23,6 +23,21 @@ if len(feed.entries) == 0:
 latest_article = feed.entries[0]
 article_url = latest_article.link
 
+# --- RESTORED DEDUPLICATION MEMORY BLOCK ---
+memory_file = "last_article.txt"
+if os.path.exists(memory_file):
+    with open(memory_file, 'r') as file:
+        last_published_url = file.read().strip()
+    
+    if article_url == last_published_url:
+        print("No new articles found. The latest news is already on your portal. Exiting...")
+        exit()
+
+# Save the new article URL to memory
+with open(memory_file, 'w') as file:
+    file.write(article_url)
+# ---------------------------------------------
+
 # 2. Extract Text 
 article_title = latest_article.title.replace('"', "'") 
 raw_summary = latest_article.summary
@@ -32,10 +47,8 @@ original_text = soup.get_text(strip=True)
 # 3. REWRITE WITH ANYTHINGLLM
 print("Sending text to AnythingLLM for rewriting...")
 
-# --- UPDATE THESE TWO VARIABLES ---
-anythingllm_api_key = "6F7CF4M-3T5MSF6-N7SKQYY-SQV5A0G"
+anythingllm_api_key = "6F7CF4M-3T5MSF6-N7SKQYY-SQV5A0G" 
 workspace_slug = "sata-katha-odia-news" 
-# ----------------------------------
 
 anythingllm_url = f"http://localhost:3001/api/v1/workspace/{workspace_slug}/chat"
 api_headers = {
@@ -53,7 +66,6 @@ try:
     
     response_data = llm_response.json()
     
-    # DEBUGGER: Check if AnythingLLM actually returned text
     if 'textResponse' in response_data and response_data['textResponse'] is not None:
         article_text = response_data['textResponse'].strip()
         print("Successfully rewritten by AnythingLLM!")
@@ -80,15 +92,16 @@ time_str = datetime.now().strftime('%H-%M')
 filename = f"_posts/{today_date}-{time_str}-news.md"
 
 markdown_content = f"""---
-layout: post
+layout: single
 title: "{article_title}"
 date: {today_date}
-image: {image_url}
+header:
+  teaser: {image_url}
+  overlay_image: {image_url}
 ---
 
-![Header Image]({image_url})
-
 {article_text}
+
 """
 
 with open(filename, 'w', encoding='utf-8') as file:
@@ -100,4 +113,3 @@ print(f"Successfully created {filename}")
 os.system('git add .')
 os.system('git commit -m "Auto-published AI rewritten article via AnythingLLM"')
 os.system('git push origin main')
-

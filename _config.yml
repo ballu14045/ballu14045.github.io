@@ -1,4 +1,7 @@
-title: Prabaha News
+title: Satakatha Odia News
 description: India's first automated Odia news portal.
-theme: minima
+remote_theme: mmistakes/minimal-mistakes
+plugins:
+  - jekyll-remote-theme
+minimal_mistakes_skin: "air"
 
