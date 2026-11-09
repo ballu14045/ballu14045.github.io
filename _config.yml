@@ -3,5 +3,4 @@ description: India's first automated Odia news portal.
 remote_theme: mmistakes/minimal-mistakes
 plugins:
   - jekyll-remote-theme
-minimal_mistakes_skin: "air"
-
+minimal_mistakes_skin: "contrast"
