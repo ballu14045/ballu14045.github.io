@@ -4,14 +4,13 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-# 1. Fetch securely from a WordPress-based Odia news feed (highly reliable)
+# 1. Fetch securely from Odisha Reporter
 rss_url = "https://odishareporter.in/feed/" 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
 
 print(f"Fetching news from {rss_url}...")
 try:
     response = requests.get(rss_url, headers=headers, timeout=10)
-    print(f"Server Status Code: {response.status_code} (200 means Success!)")
     feed = feedparser.parse(response.content)
 except Exception as e:
     print(f"Failed to connect to the server: {e}")
@@ -19,35 +18,59 @@ except Exception as e:
 
 # 2. Safety check
 if len(feed.entries) == 0:
-    print("Error: No articles found! The feed might be empty or blocked.")
+    print("Error: No articles found!")
     exit()
 
 latest_article = feed.entries[0]
+article_url = latest_article.link
 
-# 3. Extract the Title
+# 3. DEDUPLICATION CHECK
+memory_file = "last_article.txt"
+if os.path.exists(memory_file):
+    with open(memory_file, 'r') as file:
+        last_published_url = file.read().strip()
+    
+    if article_url == last_published_url:
+        print("No new articles found. Exiting...")
+        exit()
+
+with open(memory_file, 'w') as file:
+    file.write(article_url)
+
+# 4. Extract Text 
 article_title = latest_article.title.replace('"', "'") 
-
-# 4. Extract Original Text 
 raw_summary = latest_article.summary
 soup = BeautifulSoup(raw_summary, "html.parser")
 original_text = soup.get_text(strip=True)
 
-# 5. REWRITE WITH OLLAMA (LOCAL AI)
-print("Sending text to local Ollama (llama3) for rewriting...")
-ollama_url = "http://localhost:11434/api/generate"
+# 5. REWRITE WITH ANYTHINGLLM
+print("Sending text to AnythingLLM for rewriting...")
 
-ai_prompt = f"Rewrite the following Odia news summary in a professional journalistic tone in Odia. Do not add any English words. Output ONLY the rewritten Odia text, no introductions or explanations:\n\n{original_text}"
+# --- UPDATE THESE TWO VARIABLES ---
+anythingllm_api_key = "6F7CF4M-3T5MSF6-N7SKQYY-SQV5A0G"
+workspace_slug = "odia-news" # Change this if your workspace is named something else
+# ----------------------------------
+
+anythingllm_url = f"http://localhost:3001/api/v1/workspace/{workspace_slug}/chat"
+api_headers = {
+    "Authorization": f"Bearer {anythingllm_api_key}",
+    "Content-Type": "application/json"
+}
+
+# AnythingLLM already holds your System Prompt instructions, so we just send the text
+ai_prompt = f"Rewrite this news summary:\n\n{original_text}"
 
 try:
-    ollama_response = requests.post(ollama_url, json={
-        "model": "llama3", 
-        "prompt": ai_prompt,
-        "stream": False
+    llm_response = requests.post(anythingllm_url, headers=api_headers, json={
+        "message": ai_prompt,
+        "mode": "chat" 
     })
-    article_text = ollama_response.json()['response'].strip()
-    print("Successfully rewritten by AI!")
+    
+    # Extract the rewritten text from AnythingLLM's JSON response
+    article_text = llm_response.json()['textResponse'].strip()
+    print("Successfully rewritten by AnythingLLM!")
 except Exception as e:
-    print(f"Ollama connection failed, falling back to original text. Error: {e}")
+    print(f"AnythingLLM connection failed: {e}")
     article_text = original_text
 
 # 6. Extract the Image
@@ -79,10 +102,8 @@ image: {image_url}
 with open(filename, 'w', encoding='utf-8') as file:
     file.write(markdown_content)
 
-print(f"Successfully created {filename}")
-
 # 8. Push to GitHub
 os.system('git add .')
-os.system('git commit -m "Auto-published AI rewritten article"')
+os.system('git commit -m "Auto-published AI rewritten article via AnythingLLM"')
 os.system('git push origin main')
 
